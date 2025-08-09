@@ -8,24 +8,36 @@ ABaseECSCharacter::ABaseECSCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	
-	// Initialize ECS component
-	INITIALIZE_ECS_COMPONENT(TEXT("CapabilityManager"));
+	// Create the capability manager component
+	CapabilityManager = CreateDefaultSubobject<UCapabilityManagerComponent>(TEXT("CapabilityManager"));
+	
+	// Disable auto-ticking on the component since we'll manually tick it
+	if (CapabilityManager)
+	{
+		CapabilityManager->SetComponentTickEnabled(false);
+	}
 }
 
 void ABaseECSCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	// Initialize ECS capabilities
-	ECS_BEGIN_PLAY();
+	// Initialize capabilities through the manager
+	if (CapabilityManager)
+	{
+		CapabilityManager->UpdateCapabilityStates();
+	}
 }
 
 void ABaseECSCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// Tick ECS capabilities
-	ECS_TICK(DeltaTime);
+	// Manual tick capabilities if enabled
+	if (bManualCapabilityTicking && CapabilityManager)
+	{
+		CapabilityManager->ManualTick(DeltaTime);
+	}
 }
 
 void ABaseECSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -35,6 +47,3 @@ void ABaseECSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCo
 	// Add character-specific input bindings here
 	// Individual capabilities can also bind to input if needed
 }
-
-// Implement all ECS capability management functions using macro
-IMPLEMENT_ECS_CAPABILITY_FUNCTIONS(ABaseECSCharacter)

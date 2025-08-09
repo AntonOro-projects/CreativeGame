@@ -4,7 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "Capabilities/BaseCapability.h"
+
+// Forward declaration instead of full include in header
+class UBaseCapability;
 
 #include "CapabilityManagerComponent.generated.h"
 

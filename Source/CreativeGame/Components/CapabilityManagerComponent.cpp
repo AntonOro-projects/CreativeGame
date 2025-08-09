@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "Components/CapabilityManagerComponent.h"
+#include "CapabilityManagerComponent.h"
+#include "../Capabilities/BaseCapability.h"  // Use relative path that works
 #include "Engine/World.h"
 
 UCapabilityManagerComponent::UCapabilityManagerComponent()

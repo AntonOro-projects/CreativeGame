@@ -1,9 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-#include "BaseECSPawn.h"
+#include "BaseECSActor.h"
 #include "Engine/World.h"
 
-ABaseECSPawn::ABaseECSPawn()
+ABaseECSActor::ABaseECSActor()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	
@@ -17,7 +17,7 @@ ABaseECSPawn::ABaseECSPawn()
 	}
 }
 
-void ABaseECSPawn::BeginPlay()
+void ABaseECSActor::BeginPlay()
 {
 	Super::BeginPlay();
 	
@@ -28,7 +28,7 @@ void ABaseECSPawn::BeginPlay()
 	}
 }
 
-void ABaseECSPawn::Tick(float DeltaTime)
+void ABaseECSActor::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 

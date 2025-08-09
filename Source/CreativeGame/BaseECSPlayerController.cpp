@@ -8,32 +8,47 @@ ABaseECSPlayerController::ABaseECSPlayerController()
 {
 	PrimaryActorTick.bCanEverTick = true;
 	
-	// Initialize ECS component
-	INITIALIZE_ECS_COMPONENT(TEXT("CapabilityManager"));
+	// Create the capability manager component
+	CapabilityManager = CreateDefaultSubobject<UCapabilityManagerComponent>(TEXT("CapabilityManager"));
+	
+	// Disable auto-ticking on the component since we'll manually tick it
+	if (CapabilityManager)
+	{
+		CapabilityManager->SetComponentTickEnabled(false);
+	}
 }
 
 void ABaseECSPlayerController::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 	
-	// Initialize ECS capabilities early
-	ECS_BEGIN_PLAY();
+	// Initialize capabilities early
+	if (CapabilityManager)
+	{
+		CapabilityManager->UpdateCapabilityStates();
+	}
 }
 
 void ABaseECSPlayerController::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	// Additional ECS initialization if needed
-	ECS_BEGIN_PLAY();
+	// Additional capability initialization if needed
+	if (CapabilityManager)
+	{
+		CapabilityManager->UpdateCapabilityStates();
+	}
 }
 
 void ABaseECSPlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// Tick ECS capabilities
-	ECS_TICK(DeltaTime);
+	// Manual tick capabilities if enabled
+	if (bManualCapabilityTicking && CapabilityManager)
+	{
+		CapabilityManager->ManualTick(DeltaTime);
+	}
 }
 
 void ABaseECSPlayerController::SetupInputComponent()
@@ -43,6 +58,3 @@ void ABaseECSPlayerController::SetupInputComponent()
 	// Add player controller-specific input bindings here
 	// Individual capabilities can also bind to input if needed
 }
-
-// Implement all ECS capability management functions using macro
-IMPLEMENT_ECS_CAPABILITY_FUNCTIONS(ABaseECSPlayerController)

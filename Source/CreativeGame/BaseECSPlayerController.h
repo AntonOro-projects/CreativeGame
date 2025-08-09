@@ -4,18 +4,17 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
-#include "ECSInterface.h"
-#include "ECSMacros.h"
+#include "Components/CapabilityManagerComponent.h"
 
 #include "BaseECSPlayerController.generated.h"
 
 /**
  * Base ECS Player Controller class that manages components and capabilities using the CapabilityManagerComponent.
- * This class provides ECS-like functionality where capabilities provide behavior
- * and components provide data storage, built on top of Unreal's PlayerController system.
+ * Access capabilities directly through GetCapabilityManager() instead of wrapper functions.
+ * This eliminates delegation boilerplate and provides direct component access.
  */
 UCLASS(BlueprintType, Blueprintable)
-class CREATIVEGAME_API ABaseECSPlayerController : public APlayerController, public IECSInterface
+class CREATIVEGAME_API ABaseECSPlayerController : public APlayerController
 {
 	GENERATED_BODY()
 
@@ -24,11 +23,9 @@ public:
 
 	virtual void Tick(float DeltaTime) override;
 
-	// IECSInterface implementation
-	virtual UCapabilityManagerComponent* GetCapabilityManager() const override { return CapabilityManager; }
-
-	// ECS capability management functions
-	DECLARE_ECS_CAPABILITY_FUNCTIONS()
+	// Direct access to capability manager - this is all you need!
+	UFUNCTION(BlueprintPure, Category = "ECS")
+	UCapabilityManagerComponent* GetCapabilityManager() const { return CapabilityManager; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -39,6 +36,11 @@ protected:
 	// Called to bind functionality to input
 	virtual void SetupInputComponent() override;
 
-	// ECS component and properties
-	DECLARE_ECS_COMPONENT()
+	// The core ECS functionality component
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "ECS", meta = (AllowPrivateAccess = "true"))
+	UCapabilityManagerComponent* CapabilityManager;
+
+	// Control whether this actor manually ticks capabilities or lets the component handle it
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ECS")
+	bool bManualCapabilityTicking = true;
 };

@@ -3,23 +3,23 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Pawn.h"
+#include "GameFramework/Actor.h"
 #include "Components/CapabilityManagerComponent.h"
 
-#include "BaseECSPawn.generated.h"
+#include "BaseECSActor.generated.h"
 
 /**
- * Base ECS Pawn class that manages components and capabilities using the CapabilityManagerComponent.
+ * Base ECS Actor class that manages components and capabilities using the CapabilityManagerComponent.
  * Access capabilities directly through GetCapabilityManager() instead of wrapper functions.
  * This eliminates delegation boilerplate and provides direct component access.
  */
 UCLASS(BlueprintType, Blueprintable)
-class CREATIVEGAME_API ABaseECSPawn : public APawn
+class CREATIVEGAME_API ABaseECSActor : public AActor
 {
 	GENERATED_BODY()
 
 public:
-	ABaseECSPawn();
+	ABaseECSActor();
 
 	virtual void Tick(float DeltaTime) override;
 
