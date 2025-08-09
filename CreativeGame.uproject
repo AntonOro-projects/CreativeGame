@@ -1,22 +1,30 @@
 {
-	"FileVersion": 3,
-	"EngineAssociation": "{7ED885BC-4A31-F721-C0A9-7ABAE1CAE878}",
-	"Category": "",
-	"Description": "",
-	"Modules": [
-		{
-			"Name": "CreativeGame",
-			"Type": "Runtime",
-			"LoadingPhase": "Default"
-		}
-	],
-	"Plugins": [
-		{
-			"Name": "ModelingToolsEditorMode",
-			"Enabled": true,
-			"TargetAllowList": [
-				"Editor"
-			]
-		}
-	]
+  "FileVersion": 3,
+  "EngineAssociation": "{7ED885BC-4A31-F721-C0A9-7ABAE1CAE878}",
+  "Category": "",
+  "Description": "",
+  "Modules": [
+    {
+      "Name": "CreativeGame",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ],
+  "Plugins": [
+    {
+      "Name": "ModelingToolsEditorMode",
+      "Enabled": true
+    },
+    {
+      "Name": "VisualStudioTools",
+      "Enabled": true,
+      "SupportedTargetPlatforms": [
+        "Win64"
+      ]
+    }
+  ],
+  "TargetPlatforms": [],
+  "AdditionalRootDirectories": [],
+  "AdditionalPluginDirectories": [],
+  "EpicSampleNameHash": ""
 }
