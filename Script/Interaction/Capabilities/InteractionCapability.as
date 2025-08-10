@@ -19,6 +19,7 @@ class UInteractionCapability : UBaseCapability
     UEnhancedInputComponent CachedInputComponent;
     ABaseECSPlayerController CachedPlayerController;
     ABaseECSCharacter CachedCharacter;
+    UPlayerHUDCapability CachedHUDCapability;
 
     // UI/Display settings
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Display")
@@ -44,6 +45,9 @@ class UInteractionCapability : UBaseCapability
             CachedPlayerController = Cast<ABaseECSPlayerController>(CachedCharacter.GetController());
         }
 
+        // Get HUD capability for displaying interaction prompts
+        CachedHUDCapability = UPlayerHUDCapability::Get(GetOwner());
+
         if (CachedPlayerController != nullptr)
         {
             SetupInput();
@@ -61,6 +65,7 @@ class UInteractionCapability : UBaseCapability
         CachedInputComponent = nullptr;
         CachedPlayerController = nullptr;
         CachedCharacter = nullptr;
+        CachedHUDCapability = nullptr;
     }
 
     void SetupInput()
@@ -148,6 +153,8 @@ class UInteractionCapability : UBaseCapability
             if (CurrentInteractionTarget == Interactable)
             {
                 CurrentInteractionTarget = nullptr;
+                // Hide interaction prompt when target is removed
+                HideInteractionPrompt();
             }
             UpdateCurrentInteractionTarget();
             Log(f"Unregistered interactable: {Interactable.GetName()}");
@@ -177,20 +184,72 @@ class UInteractionCapability : UBaseCapability
     {
         if (CurrentInteractionTarget == nullptr)
         {
-            Log("No interaction available");
+            HideInteractionPrompt();
             return;
         }
 
         // Try to get interaction text from a pickup actor
         APickupActor Pickup = Cast<APickupActor>(CurrentInteractionTarget);
+        FString InteractionText;
+        
         if (Pickup != nullptr)
         {
-            FString InteractionText = Pickup.GetInteractionText();
-            Log(f"INTERACTION PROMPT: {InteractionText}");
+            InteractionText = Pickup.GetInteractionText();
         }
         else
         {
-            Log("INTERACTION PROMPT: Press F to interact");
+            InteractionText = "Press F to interact";
+        }
+
+        // Try to get HUD capability if we don't have it cached
+        if (CachedHUDCapability == nullptr)
+        {
+            CachedHUDCapability = UPlayerHUDCapability::Get(GetOwner());
+        }
+
+        // Display on HUD if available, otherwise log to console
+        if (CachedHUDCapability != nullptr)
+        {
+            CachedHUDCapability.ShowInteractionPrompt(InteractionText);
+        }
+        else
+        {
+            Log(f"INTERACTION PROMPT: {InteractionText}");
+        }
+    }
+
+    void HideInteractionPrompt()
+    {
+        // Try to get HUD capability if we don't have it cached
+        if (CachedHUDCapability == nullptr)
+        {
+            CachedHUDCapability = UPlayerHUDCapability::Get(GetOwner());
+        }
+        
+        // Hide from HUD if available
+        if (CachedHUDCapability != nullptr)
+        {
+            CachedHUDCapability.HideInteractionPrompt();
+        }
+        else
+        {
+            Log("INTERACTION PROMPT HIDDEN");
+        }
+    }
+
+    void TryInteract()
+    {
+        if (CurrentInteractionTarget != nullptr)
+        {
+            bool bSuccess = TryInteractWith(CurrentInteractionTarget);
+            if (bSuccess)
+            {
+                HideInteractionPrompt();
+            }
+        }
+        else
+        {
+            Log("No interaction available");
         }
     }
 

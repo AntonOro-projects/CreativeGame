@@ -5,6 +5,11 @@ class UInventoryInputCapability : UBaseCapability
     UEnhancedInputComponent CachedInputComponent;
     ABaseECSPlayerController CachedPlayerController;
     ABaseECSCharacter CachedCharacter;
+    UPlayerHUDCapability CachedHUDCapability;
+
+    // For tracking inventory changes
+    UInventoryItemData LastKnownItem;
+    int32 LastKnownSlot = -1;
 
     UFUNCTION(BlueprintOverride)
     bool ShouldBeActive() const
@@ -25,10 +30,16 @@ class UInventoryInputCapability : UBaseCapability
             CachedPlayerController = Cast<ABaseECSPlayerController>(CachedCharacter.GetController());
         }
 
+        // Get HUD capability for displaying inventory info
+        CachedHUDCapability = UPlayerHUDCapability::Get(GetOwner());
+
         if (CachedPlayerController != nullptr)
         {
             SetupInput();
         }
+
+        // Update HUD with initial inventory state
+        UpdateInventoryHUD();
     }
 
     UFUNCTION(BlueprintOverride)
@@ -42,6 +53,11 @@ class UInventoryInputCapability : UBaseCapability
         CachedInputComponent = nullptr;
         CachedPlayerController = nullptr;
         CachedCharacter = nullptr;
+        CachedHUDCapability = nullptr;
+        
+        // Clear tracking variables
+        LastKnownItem = nullptr;
+        LastKnownSlot = -1;
     }
 
     void SetupInput()
@@ -156,18 +172,34 @@ class UInventoryInputCapability : UBaseCapability
             
             UInventoryItemData SelectedItem = CachedInventoryComponent.GetPrimaryItem();
             
-            Log(f"Selected inventory slot {SlotIndex + 1}");
-            if (SelectedItem != nullptr)
-            {
-                Log(f"Selected item: {SelectedItem.GetDisplayName()}");
-            }
-            else
-            {
-                Log("Selected slot is empty");
-            }
+            // Update HUD instead of console logging
+            UpdateInventoryHUD();
 
             // Notify other systems about inventory selection change
             OnInventorySelectionChanged(PreviousSlot, SlotIndex, SelectedItem);
+        }
+    }
+
+    void UpdateInventoryHUD()
+    {
+        // Try to get HUD capability if we don't have it cached
+        if (CachedHUDCapability == nullptr)
+        {
+            CachedHUDCapability = UPlayerHUDCapability::Get(GetOwner());
+        }
+        
+        if (CachedHUDCapability != nullptr && CachedInventoryComponent != nullptr)
+        {
+            int32 SelectedSlot = CachedInventoryComponent.GetSelectedSlotIndex();
+            UInventoryItemData SelectedItem = CachedInventoryComponent.GetPrimaryItem();
+            
+            FString ItemName = "Empty";
+            if (SelectedItem != nullptr)
+            {
+                ItemName = SelectedItem.GetDisplayName();
+            }
+            
+            CachedHUDCapability.UpdateInventoryDisplay(SelectedSlot + 1, ItemName);
         }
     }
 
@@ -181,7 +213,20 @@ class UInventoryInputCapability : UBaseCapability
     UFUNCTION(BlueprintOverride)
     void TickCapability(float DeltaTime)
     {
-        // This capability doesn't need to tick continuously
-        // Input handling is event-driven
+        // Check if inventory has changed and update HUD if needed
+        // This handles cases where items are added/removed outside of input (like pickups)
+        if (CachedInventoryComponent != nullptr)
+        {
+            UInventoryItemData CurrentItem = CachedInventoryComponent.GetPrimaryItem();
+            int32 CurrentSlot = CachedInventoryComponent.GetSelectedSlotIndex();
+            
+            // Update HUD if the selected slot or its contents changed
+            if (CurrentItem != LastKnownItem || CurrentSlot != LastKnownSlot)
+            {
+                UpdateInventoryHUD();
+                LastKnownItem = CurrentItem;
+                LastKnownSlot = CurrentSlot;
+            }
+        }
     }
 };

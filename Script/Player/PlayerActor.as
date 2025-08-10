@@ -52,6 +52,10 @@ class ANormalPlayerCharacter : ABaseECSCharacter
     UPROPERTY()
     UInputMappingContext InteractionInputContext;
 
+    // HUD setup
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "UI")
+    TSubclassOf<UPlayerHUD> PlayerHUDClass;
+
     UCapabilityManagerComponent CachedCapabilityManager;
 
     UPROPERTY()
@@ -88,6 +92,9 @@ class ANormalPlayerCharacter : ABaseECSCharacter
 
         // Add interaction capability
         CachedCapabilityManager.AddCapability(UInteractionCapability);
+
+        // Add HUD capability
+        CachedCapabilityManager.AddCapability(UPlayerHUDCapability);
 
         // Test adding items to inventory
         //TestAddItemsToInventory();
