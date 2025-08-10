@@ -17,19 +17,26 @@ class ANormalPlayer : ABaseECSActor
 
 class ANormalPlayerCharacter : ABaseECSCharacter
 {
-    UPROPERTY(DefaultComponent, RootComponent)
-    USceneComponent SceneRoot;
-
-    UPROPERTY(DefaultComponent, Attach = SceneRoot)
+    // Do NOT replace the Character's root (CapsuleComponent). Leave attach unspecified so it attaches to the inherited root.
+    UPROPERTY(DefaultComponent)
     UStaticMeshComponent StaticMesh;
 
     UPROPERTY()
-    UInputAction Action;
+    UInputAction MoveAction; // Axis2D
+
+    UPROPERTY()
+    UInputAction JumpAction;
+
+    UPROPERTY()
+    UInputAction MoveCamera;
 
     UPROPERTY()
     UInputMappingContext Context;
 
     UCapabilityManagerComponent CachedCapabilityManager;
+
+    UPROPERTY()
+    UPlayerMovementComponent PlayerMovement;
 
 	UFUNCTION(BlueprintOverride)
 	void BeginPlay()
@@ -38,15 +45,21 @@ class ANormalPlayerCharacter : ABaseECSCharacter
 
         //CachedCapabilityManager.AddCapability(UMovementCapability);
 
-       UPlayerMovementComponent PlayerMovementComponent = UPlayerMovementComponent::Create(this);
-       PlayerMovementComponent.Setup();
+        PlayerMovement = UPlayerMovementComponent::Create(this);
+        PlayerMovement.Setup();
 	}
 };
 
 class UPlayerMovementComponent : UEnhancedInputComponent
 {
     UPROPERTY(Category = "Input Actions")
-    UInputAction Action;
+    UInputAction MoveAction; // Axis2D
+
+    UPROPERTY(Category = "Input Actions")
+    UInputAction JumpAction;
+
+    UPROPERTY(Category = "Input Actions")
+    UInputAction MoveCamera;
 
     UPROPERTY(Category = "Input Actions")
     UInputMappingContext Context;
@@ -58,24 +71,55 @@ class UPlayerMovementComponent : UEnhancedInputComponent
     bool bWarnedNoCharacter = false;
     float WalkSpeed = 600.0f;
     float SprintSpeed = 900.0f;
+    float LookSensitivityYaw = 1.0f;   // turn speed scale
+    float LookSensitivityPitch = 1.0f; // look up/down speed scale
+    bool bInvertY = false;             // typical default: not inverted
+    float MinPitch = -80.0f;           // clamp to avoid flipping
+    float MaxPitch = 80.0f;
     
     UFUNCTION()
     void Setup()
     {
-        PlayerCharacter = Cast<ANormalPlayerCharacter>(Owner);
+        PlayerCharacter = Cast<ANormalPlayerCharacter>(GetOwner());
         if (PlayerCharacter != nullptr)
         {
-            Action = PlayerCharacter.Action;
+            MoveAction = PlayerCharacter.MoveAction;
+            JumpAction = PlayerCharacter.JumpAction;
+            MoveCamera = PlayerCharacter.MoveCamera;
             Context = PlayerCharacter.Context;
         }
-        APlayerController PlayerController = Cast<APlayerController>(PlayerCharacter.GetController());
-        UEnhancedInputLocalPlayerSubsystem EnhancedInputSubsystem = UEnhancedInputLocalPlayerSubsystem::Get(PlayerController);
-        EnhancedInputSubsystem.AddMappingContext(Context, 0, FModifyContextOptions());        
+        APlayerController PlayerController = PlayerCharacter != nullptr ? Cast<APlayerController>(PlayerCharacter.GetController()) : nullptr;
+        if (PlayerController != nullptr)
+        {
+            // Ensure this input component is in the stack so bindings receive events
+            PlayerController.PushInputComponent(this);
+            if (Context != nullptr)
+            {
+                UEnhancedInputLocalPlayerSubsystem EnhancedInputSubsystem = UEnhancedInputLocalPlayerSubsystem::Get(PlayerController);
+                if (EnhancedInputSubsystem != nullptr)
+                {
+                    EnhancedInputSubsystem.AddMappingContext(Context, 0, FModifyContextOptions());       
+                }
+            }
+        }
         
-        BindAction(Action, ETriggerEvent::Triggered, FEnhancedInputActionHandlerDynamicSignature(this, n"OnKeyPressed"));
+        // Bind movement (2D axis). Triggered fires every frame while held.
+        if (MoveAction != nullptr)
+            BindAction(MoveAction, ETriggerEvent::Triggered, FEnhancedInputActionHandlerDynamicSignature(this, n"OnMove"));
+
+        // Bind camera look (2D axis)
+        if (MoveCamera != nullptr)
+            BindAction(MoveCamera, ETriggerEvent::Triggered, FEnhancedInputActionHandlerDynamicSignature(this, n"OnLook"));
+
+        // Bind jump actions
+        if (JumpAction != nullptr)
+        {
+            BindAction(JumpAction, ETriggerEvent::Started, FEnhancedInputActionHandlerDynamicSignature(this, n"OnJumpStarted"));
+            BindAction(JumpAction, ETriggerEvent::Completed, FEnhancedInputActionHandlerDynamicSignature(this, n"OnJumpCompleted"));
+        }
 
         // Ensure default walk speed if we have a character movement
-        ACharacter CharOwner = Cast<ACharacter>(Owner);
+        ACharacter CharOwner = Cast<ACharacter>(GetOwner());
         if (CharOwner != nullptr && CharOwner.CharacterMovement != nullptr)
         {
             CharOwner.CharacterMovement.MaxWalkSpeed = WalkSpeed;
@@ -83,13 +127,64 @@ class UPlayerMovementComponent : UEnhancedInputComponent
     }
 
     UFUNCTION()
-    private void OnKeyPressed(FInputActionValue ActionValue, float32 ElapsedTime,
+    private void OnMove(FInputActionValue ActionValue, float32 ElapsedTime,
                               float32 TriggeredTime, const UInputAction SourceAction)
     {
-        FVector Dir = PlayerCharacter.ControlRotation.ForwardVector;
-        PlayerCharacter.AddMovementInput(Dir);
-        Log(f"pos: {PlayerCharacter.GetActorLocation()}");
+        if (PlayerCharacter == nullptr)
+            return;
+        FVector2D Axis = ActionValue.GetAxis2D();
+        // Use yaw-only control rotation so movement is camera-relative without pitch affecting speed
+        FRotator YawRot = FRotator(0.0f, PlayerCharacter.ControlRotation.Yaw, 0.0f);
+        FVector Forward = YawRot.ForwardVector;
+        FVector Right = YawRot.RightVector;
+        if (Axis.Y != 0.0f)
+            PlayerCharacter.AddMovementInput(Forward, Axis.Y);
+        if (Axis.X != 0.0f)
+            PlayerCharacter.AddMovementInput(Right, Axis.X);
     }
+
+    UFUNCTION()
+    private void OnLook(FInputActionValue ActionValue, float32 ElapsedTime,
+                        float32 TriggeredTime, const UInputAction SourceAction)
+    {
+        if (PlayerCharacter == nullptr)
+            return;
+
+        FVector2D LookAxis = ActionValue.GetAxis2D();
+
+        // Scale by sensitivity; for mouse delta mappings, the context usually provides per-frame delta already
+        float YawDelta = LookAxis.X * LookSensitivityYaw;
+        float PitchDelta = (bInvertY ? -LookAxis.Y : LookAxis.Y) * LookSensitivityPitch;
+
+        // Update controller rotation directly to avoid wrap-around and snapping
+        AController C = PlayerCharacter.Controller;
+        if (C != nullptr)
+        {
+            FRotator CtrlRot = PlayerCharacter.ControlRotation;
+            CtrlRot.Yaw += YawDelta;
+            CtrlRot.Pitch = Math::Clamp(CtrlRot.Pitch + PitchDelta, MinPitch, MaxPitch);
+            C.SetControlRotation(CtrlRot);
+        }
+    }
+
+    UFUNCTION()
+    private void OnJumpStarted(FInputActionValue ActionValue, float32 ElapsedTime,
+                              float32 TriggeredTime, const UInputAction SourceAction)
+    {
+        if (PlayerCharacter == nullptr)
+            return;
+        PlayerCharacter.Jump();
+    }
+
+    UFUNCTION()
+    private void OnJumpCompleted(FInputActionValue ActionValue, float32 ElapsedTime,
+                              float32 TriggeredTime, const UInputAction SourceAction)
+    {
+        if (PlayerCharacter == nullptr)
+            return;
+        PlayerCharacter.StopJumping();
+    }
+
 };
 
 class UMyComponent : UActorComponent
