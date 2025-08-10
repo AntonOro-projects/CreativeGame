@@ -1,15 +1,19 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "BaseECSActor.h"
+#include "BaseECSCharacter.h"
+#include "BaseECSPawn.h"
+#include "BaseECSPlayerController.h"
 #include "Engine/World.h"
+#include "Kismet/GameplayStatics.h"
 
 ABaseECSActor::ABaseECSActor()
 {
 	PrimaryActorTick.bCanEverTick = true;
-	
+
 	// Create the capability manager component
 	CapabilityManager = CreateDefaultSubobject<UCapabilityManagerComponent>(TEXT("CapabilityManager"));
-	
+
 	// Disable auto-ticking on the component since we'll manually tick it
 	if (CapabilityManager)
 	{
@@ -20,7 +24,7 @@ ABaseECSActor::ABaseECSActor()
 void ABaseECSActor::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	// Initialize capabilities through the manager
 	if (CapabilityManager)
 	{
@@ -37,4 +41,137 @@ void ABaseECSActor::Tick(float DeltaTime)
 	{
 		CapabilityManager->ManualTick(DeltaTime);
 	}
+}
+
+TArray<ABaseECSActor*> ABaseECSActor::GetNearbyECSActors(float Radius) const
+{
+	TArray<ABaseECSActor*> NearbyECSActors;
+
+	if (UWorld* World = GetWorld())
+	{
+		TArray<AActor*> AllActors;
+		UGameplayStatics::GetAllActorsOfClass(World, ABaseECSActor::StaticClass(), AllActors);
+
+		const FVector MyLocation = GetActorLocation();
+
+		for (AActor* Actor : AllActors)
+		{
+			if (Actor != this && FVector::Dist(Actor->GetActorLocation(), MyLocation) <= Radius)
+			{
+				if (ABaseECSActor* ECSActor = Cast<ABaseECSActor>(Actor))
+				{
+					NearbyECSActors.Add(ECSActor);
+				}
+			}
+		}
+	}
+
+	return NearbyECSActors;
+}
+
+TArray<ABaseECSPawn*> ABaseECSActor::GetNearbyECSPawns(float Radius) const
+{
+	TArray<ABaseECSPawn*> NearbyECSPawns;
+
+	if (UWorld* World = GetWorld())
+	{
+		TArray<AActor*> AllPawns;
+		UGameplayStatics::GetAllActorsOfClass(World, ABaseECSPawn::StaticClass(), AllPawns);
+
+		const FVector MyLocation = GetActorLocation();
+
+		for (AActor* Actor : AllPawns)
+		{
+			if (Actor != this && FVector::Dist(Actor->GetActorLocation(), MyLocation) <= Radius)
+			{
+				if (ABaseECSPawn* ECSPawn = Cast<ABaseECSPawn>(Actor))
+				{
+					NearbyECSPawns.Add(ECSPawn);
+				}
+			}
+		}
+	}
+
+	return NearbyECSPawns;
+}
+
+TArray<ABaseECSCharacter*> ABaseECSActor::GetNearbyECSCharacters(float Radius) const
+{
+	TArray<ABaseECSCharacter*> NearbyECSCharacters;
+
+	if (UWorld* World = GetWorld())
+	{
+		TArray<AActor*> AllCharacters;
+		UGameplayStatics::GetAllActorsOfClass(World, ABaseECSCharacter::StaticClass(), AllCharacters);
+
+		const FVector MyLocation = GetActorLocation();
+
+		for (AActor* Actor : AllCharacters)
+		{
+			if (Actor != this && FVector::Dist(Actor->GetActorLocation(), MyLocation) <= Radius)
+			{
+				if (ABaseECSCharacter* ECSCharacter = Cast<ABaseECSCharacter>(Actor))
+				{
+					NearbyECSCharacters.Add(ECSCharacter);
+				}
+			}
+		}
+	}
+
+	return NearbyECSCharacters;
+}
+
+TArray<ABaseECSPlayerController*> ABaseECSActor::GetECSPlayerControllers() const
+{
+	TArray<ABaseECSPlayerController*> ECSPlayerControllers;
+
+	if (UWorld* World = GetWorld())
+	{
+		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			if (ABaseECSPlayerController* ECSController = Cast<ABaseECSPlayerController>(Iterator->Get()))
+			{
+				ECSPlayerControllers.Add(ECSController);
+			}
+		}
+	}
+
+	return ECSPlayerControllers;
+}
+
+ABaseECSActor* ABaseECSActor::GetClosestECSActor(TSubclassOf<ABaseECSActor> ActorClass) const
+{
+	if (!ActorClass)
+	{
+		return nullptr;
+	}
+
+	ABaseECSActor* ClosestActor = nullptr;
+	float ClosestDistance = FLT_MAX;
+
+	if (UWorld* World = GetWorld())
+	{
+		TArray<AActor*> AllActors;
+		UGameplayStatics::GetAllActorsOfClass(World, ActorClass, AllActors);
+
+		const FVector MyLocation = GetActorLocation();
+
+		for (AActor* Actor : AllActors)
+		{
+			if (Actor != this)
+			{
+				float Distance = FVector::Dist(Actor->GetActorLocation(), MyLocation);
+				if (Distance < ClosestDistance)
+				{
+					if (ABaseECSActor* ECSActor = Cast<ABaseECSActor>(Actor))
+					{
+						ClosestDistance = Distance;
+						ClosestActor = ECSActor;
+					}
+				}
+			}
+		}
+	}
+
+	return ClosestActor;
 }

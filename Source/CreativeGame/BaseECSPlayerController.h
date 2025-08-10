@@ -8,10 +8,17 @@
 
 #include "BaseECSPlayerController.generated.h"
 
+// Forward declarations for ECS types
+class ABaseECSCharacter;
+class ABaseECSPawn;
+class ABaseECSActor;
+
 /**
  * Base ECS Player Controller class that manages components and capabilities using the CapabilityManagerComponent.
  * Access capabilities directly through GetCapabilityManager() instead of wrapper functions.
  * This eliminates delegation boilerplate and provides direct component access.
+ * 
+ * Provides type-safe access to other ECS classes to ensure we're always working within the ECS ecosystem.
  */
 UCLASS(BlueprintType, Blueprintable)
 class CREATIVEGAME_API ABaseECSPlayerController : public APlayerController
@@ -26,6 +33,25 @@ public:
 	// Direct access to capability manager - this is all you need!
 	UFUNCTION(BlueprintPure, Category = "ECS")
 	UCapabilityManagerComponent* GetCapabilityManager() const { return CapabilityManager; }
+
+	// Type-safe access to ECS Pawn (guaranteed to be ECS-enabled)
+	UFUNCTION(BlueprintPure, Category = "ECS")
+	ABaseECSPawn* GetECSPawn() const;
+
+	// Type-safe access to ECS Character (if possessed pawn is a character)
+	UFUNCTION(BlueprintPure, Category = "ECS")
+	ABaseECSCharacter* GetECSCharacter() const;
+
+	// Helper function to find nearby ECS Actors from the controller's perspective
+	UFUNCTION(BlueprintCallable, Category = "ECS")
+	TArray<ABaseECSActor*> GetNearbyECSActors(float Radius) const;
+
+	// Possession functions that ensure we only possess ECS pawns
+	UFUNCTION(BlueprintCallable, Category = "ECS")
+	void PossessECSPawn(ABaseECSPawn* ECSPawn);
+
+	UFUNCTION(BlueprintCallable, Category = "ECS")
+	void PossessECSCharacter(ABaseECSCharacter* ECSCharacter);
 
 protected:
 	virtual void BeginPlay() override;

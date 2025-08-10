@@ -5,16 +5,24 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
 #include "Components/CapabilityManagerComponent.h"
+#include "ECSPawnInterface.h"
 
 #include "BaseECSPawn.generated.h"
+
+// Forward declarations for ECS types
+class ABaseECSPlayerController;
+class ABaseECSActor;
+class ABaseECSCharacter;
 
 /**
  * Base ECS Pawn class that manages components and capabilities using the CapabilityManagerComponent.
  * Access capabilities directly through GetCapabilityManager() instead of wrapper functions.
  * This eliminates delegation boilerplate and provides direct component access.
+ * 
+ * Provides type-safe access to other ECS classes to ensure we're always working within the ECS ecosystem.
  */
 UCLASS(BlueprintType, Blueprintable)
-class CREATIVEGAME_API ABaseECSPawn : public APawn
+class CREATIVEGAME_API ABaseECSPawn : public APawn, public IECSPawnInterface
 {
 	GENERATED_BODY()
 
@@ -23,9 +31,28 @@ public:
 
 	virtual void Tick(float DeltaTime) override;
 
-	// Direct access to capability manager - this is all you need!
+	// IECSPawnInterface implementation
+	virtual UCapabilityManagerComponent* GetCapabilityManager() const override { return CapabilityManager; }
+
+	// Type-safe access to ECS PlayerController
 	UFUNCTION(BlueprintPure, Category = "ECS")
-	UCapabilityManagerComponent* GetCapabilityManager() const { return CapabilityManager; }
+	ABaseECSPlayerController* GetECSController() const;
+
+	// Helper function to find nearby ECS Actors
+	UFUNCTION(BlueprintCallable, Category = "ECS")
+	TArray<ABaseECSActor*> GetNearbyECSActors(float Radius) const;
+
+	// Helper function to find ECS Pawns in range
+	UFUNCTION(BlueprintCallable, Category = "ECS")
+	TArray<ABaseECSPawn*> GetNearbyECSPawns(float Radius) const;
+
+	// Helper function to find ECS Characters in range
+	UFUNCTION(BlueprintCallable, Category = "ECS")
+	TArray<ABaseECSCharacter*> GetNearbyECSCharacters(float Radius) const;
+
+	// Find the closest ECS Actor of a specific type
+	UFUNCTION(BlueprintCallable, Category = "ECS")
+	ABaseECSActor* GetClosestECSActor(TSubclassOf<ABaseECSActor> ActorClass) const;
 
 protected:
 	virtual void BeginPlay() override;
