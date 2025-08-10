@@ -6,8 +6,9 @@
 
 UCapabilityManagerComponent::UCapabilityManagerComponent()
 {
-	PrimaryComponentTick.bCanEverTick = true;
-	PrimaryComponentTick.bStartWithTickEnabled = true;
+	// Disable auto-ticking completely for manual control
+	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bStartWithTickEnabled = false;
 }
 
 void UCapabilityManagerComponent::BeginPlay()
@@ -17,8 +18,8 @@ void UCapabilityManagerComponent::BeginPlay()
 	// Initialize any capabilities that should start active
 	UpdateCapabilityStates();
 	
-	// Set ticking based on configuration
-	SetComponentTickEnabled(bAutoTick);
+	// Always disable auto-ticking since we use manual ticking
+	SetComponentTickEnabled(false);
 }
 
 void UCapabilityManagerComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -30,6 +31,7 @@ void UCapabilityManagerComponent::TickComponent(float DeltaTime, ELevelTick Tick
 
 void UCapabilityManagerComponent::ManualTick(float DeltaTime)
 {
+	// Only get time once per frame instead of every call
 	const float CurrentTime = GetWorld()->GetTimeSeconds();
 	
 	// Update capability activation states periodically (performance optimization)
@@ -39,13 +41,29 @@ void UCapabilityManagerComponent::ManualTick(float DeltaTime)
 		LastCapabilityUpdateTime = CurrentTime;
 	}
 
-	// Tick only active capabilities
+	// Handle any deferred capability state updates before ticking
+	if (bCapabilityStateUpdateRequested && !bIsCurrentlyTicking)
+	{
+		UpdateCapabilityStates();
+		bCapabilityStateUpdateRequested = false;
+	}
+
+	// Tick only active capabilities - this is the main work
+	bIsCurrentlyTicking = true;
 	for (UBaseCapability* Capability : ActiveCapabilities)
 	{
 		if (IsValid(Capability))
 		{
 			Capability->TickCapability(DeltaTime);
 		}
+	}
+	bIsCurrentlyTicking = false;
+
+	// Handle any capability state updates that were requested during ticking
+	if (bCapabilityStateUpdateRequested)
+	{
+		UpdateCapabilityStates();
+		bCapabilityStateUpdateRequested = false;
 	}
 }
 
@@ -168,6 +186,13 @@ TArray<UBaseCapability*> UCapabilityManagerComponent::GetCapabilities(TSubclassO
 
 void UCapabilityManagerComponent::UpdateCapabilityStates()
 {
+	// If we're currently ticking, defer this update to avoid array modification during iteration
+	if (bIsCurrentlyTicking)
+	{
+		bCapabilityStateUpdateRequested = true;
+		return;
+	}
+
 	// Create a copy to avoid modification during iteration
 	TArray<UBaseCapability*> CapabilitiesToCheck = Capabilities;
 
@@ -237,4 +262,10 @@ void UCapabilityManagerComponent::DeactivateCapability(UBaseCapability* Capabili
 	
 	// Remove from active list
 	ActiveCapabilities.Remove(Capability);
+}
+
+void UCapabilityManagerComponent::RequestCapabilityStateUpdate()
+{
+	// This is the safe version that capabilities should call during their TickCapability
+	bCapabilityStateUpdateRequested = true;
 }

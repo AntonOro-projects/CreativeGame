@@ -56,6 +56,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Capabilities")
 	void UpdateCapabilityStates();
 
+	// Request deferred capability state update (safe to call during ticking)
+	UFUNCTION(BlueprintCallable, Category = "Capabilities")
+	void RequestCapabilityStateUpdate();
+
 	// Manual tick for when owner doesn't want auto-ticking
 	UFUNCTION(BlueprintCallable, Category = "Capabilities")
 	void ManualTick(float DeltaTime);
@@ -80,4 +84,8 @@ private:
 	bool bAutoTick = true; // Whether this component should auto-tick or rely on manual ticking
 
 	float LastCapabilityUpdateTime = 0.0f;
+
+	// Deferred update system to avoid modifying arrays during iteration
+	bool bCapabilityStateUpdateRequested = false;
+	bool bIsCurrentlyTicking = false;
 };

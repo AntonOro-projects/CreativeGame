@@ -6,13 +6,6 @@ class ANormalPlayer : ABaseECSActor
     UPROPERTY(DefaultComponent, Attach = SceneRoot)
     UStaticMeshComponent Mesh;
 
-      
-    UFUNCTION(BlueprintOverride)
-    void BeginPlay()
-    {
-        //AddCapability(UMovementCapability);
-    };
-
 };
 
 class ANormalPlayerCharacter : ABaseECSCharacter
@@ -47,5 +40,7 @@ class ANormalPlayerCharacter : ABaseECSCharacter
 
         PlayerMovement = UPlayerMovementComponent::Create(this);
         PlayerMovement.Setup();
+
+        CachedCapabilityManager.AddCapability(UInventoryCapability);
 	}
 };
