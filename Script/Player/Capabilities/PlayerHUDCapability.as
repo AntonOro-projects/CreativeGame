@@ -17,7 +17,7 @@ class UPlayerHUDCapability : UBaseCapability
     ABaseECSCharacter CachedCharacter;
 
     UFUNCTION(BlueprintOverride)
-    bool ShouldBeActive() const
+    bool ShouldBeActive()
     {
         // Active when attached to a character with a player controller
         ABaseECSCharacter Character = Cast<ABaseECSCharacter>(GetOwner());

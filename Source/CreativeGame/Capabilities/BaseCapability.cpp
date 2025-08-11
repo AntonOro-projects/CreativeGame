@@ -52,19 +52,19 @@ void UBaseCapability::TickCapability_Implementation(float DeltaTime)
     // This is only called when the capability is active
 }
 
-bool UBaseCapability::ShouldBeActive_Implementation() const
+bool UBaseCapability::ShouldBeActive_Implementation()
 {
     // Default implementation - override in derived classes
     return true;
 }
 
-bool UBaseCapability::ShouldDeactivate_Implementation() const
+bool UBaseCapability::ShouldDeactivate_Implementation()
 {
     // Override in Blueprint or C++
     return false;
 }
 
-bool UBaseCapability::ShouldActivate_Implementation() const
+bool UBaseCapability::ShouldActivate_Implementation()
 {
     // Override in Blueprint or C++
     return true;

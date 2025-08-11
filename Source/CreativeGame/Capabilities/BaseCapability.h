@@ -24,13 +24,13 @@ public:
 
     // State management - override these for custom activation logic
     UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Capabilities")
-    bool ShouldBeActive() const;
+    bool ShouldBeActive();
 
     UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Capabilities")
-    bool ShouldDeactivate() const;
+    bool ShouldDeactivate();
 
     UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Capabilities")
-    bool ShouldActivate() const;
+    bool ShouldActivate();
 
     // Override UActorComponent's activation methods for capability-specific logic
     virtual void Activate(bool bReset = false) override;

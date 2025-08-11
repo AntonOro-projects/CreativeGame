@@ -1,9 +1,23 @@
 /**
  * Capability that handles player interaction with interactable objects.
  * Shows prompts when near interactable objects and handles input for interaction.
+ * Uses an event-based system to broadcast interaction events to other capabilities.
  */
 class UInteractionCapability : UBaseCapability
 {
+    // Replicate this component so RPCs are valid across network
+    default bReplicates = true;
+    // Interaction sphere for detecting nearby interactables (when this actor can interact)
+    UPROPERTY()
+    USphereComponent InteractionSphere;
+
+    // Whether to auto-create interaction sphere for detecting nearby objects
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
+    bool bAutoCreateInteractionSphere = true;
+
+    // Radius for interaction detection
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Interaction")
+    float InteractionRadius = 200.0f;
     // Input action for interaction
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
     UInputAction InteractAction;
@@ -29,7 +43,7 @@ class UInteractionCapability : UBaseCapability
     AActor CurrentInteractionTarget;
 
     UFUNCTION(BlueprintOverride)
-    bool ShouldBeActive() const
+    bool ShouldBeActive()
     {
         // Active when attached to a character
         return Cast<ABaseECSCharacter>(GetOwner()) != nullptr;
@@ -48,6 +62,67 @@ class UInteractionCapability : UBaseCapability
         // Get HUD capability for displaying interaction prompts
         CachedHUDCapability = UPlayerHUDCapability::Get(GetOwner());
 
+        // Create interaction sphere for detecting nearby interactables (if this is a player)
+        if (CachedCharacter != nullptr && bAutoCreateInteractionSphere)
+        {
+            CreateInteractionSphere();
+        }
+
+        // Set up input if we have a player controller
+        if (CachedPlayerController != nullptr)
+        {
+            SetupInput();
+        }
+    }
+
+    void CreateInteractionSphere()
+    {
+        AActor OwnerActor = GetOwner();
+        if (OwnerActor == nullptr)
+            return;
+
+        // Create sphere component for detecting nearby interactables
+        InteractionSphere = USphereComponent::Create(OwnerActor);
+        if (InteractionSphere != nullptr)
+        {
+            // Set up collision
+            InteractionSphere.SetSphereRadius(InteractionRadius);
+            InteractionSphere.SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+            
+            // Bind overlap events
+            InteractionSphere.OnComponentBeginOverlap.AddUFunction(this, n"OnInteractionSphereBeginOverlap");
+            InteractionSphere.OnComponentEndOverlap.AddUFunction(this, n"OnInteractionSphereEndOverlap");
+            
+            Log(f"Created interaction sphere for {OwnerActor.GetName()} with radius {InteractionRadius}");
+        }
+        else
+        {
+            Log(f"Failed to create interaction sphere for {OwnerActor.GetName()}");
+        }
+    }
+
+    UFUNCTION()
+    void OnInteractionSphereBeginOverlap(UPrimitiveComponent OverlappedComponent, AActor OtherActor, 
+        UPrimitiveComponent OtherComp, int OtherBodyIndex, bool bFromSweep, const FHitResult&in SweepResult)
+    {
+        // Check if the other actor has any interaction capabilities
+        UCapabilityManagerComponent OtherCapManager = UCapabilityManagerComponent::Get(OtherActor);
+        if (OtherCapManager != nullptr)
+        {
+            RegisterInteractable(OtherActor);
+            Log(f"Registered {OtherActor.GetName()} as interactable with {GetOwner().GetName()}");
+        }
+    }
+
+    UFUNCTION()
+    void OnInteractionSphereEndOverlap(UPrimitiveComponent OverlappedComponent, AActor OtherActor, 
+        UPrimitiveComponent OtherComp, int OtherBodyIndex)
+    {
+        UnregisterInteractable(OtherActor);
+        Log(f"Unregistered {OtherActor.GetName()} from {GetOwner().GetName()}");
+    
+        CachedHUDCapability = UPlayerHUDCapability::Get(GetOwner());
+
         if (CachedPlayerController != nullptr)
         {
             SetupInput();
@@ -59,12 +134,21 @@ class UInteractionCapability : UBaseCapability
     {
         CleanupInput();
         
+        // Clean up interaction sphere
+        if (InteractionSphere != nullptr)
+        {
+            InteractionSphere.DestroyComponent();
+            InteractionSphere = nullptr;
+        }
+        
         // Clear all references
         NearbyInteractables.Empty();
         CurrentInteractionTarget = nullptr;
         CachedInputComponent = nullptr;
         CachedPlayerController = nullptr;
         CachedCharacter = nullptr;
+        CachedHUDCapability = nullptr;
+    
         CachedHUDCapability = nullptr;
     }
 
@@ -189,25 +273,17 @@ class UInteractionCapability : UBaseCapability
         }
 
         // Try to get interaction text from a pickup capability
-        UPickupCapability PickupCap = UPickupCapability::Get(CurrentInteractionTarget);
+        UActorPickupCapability PickupCap = UActorPickupCapability::Get(CurrentInteractionTarget);
         FString InteractionText;
         
         if (PickupCap != nullptr)
         {
-            InteractionText = PickupCap.GetInteractionText();
+            InteractionText = "Press E to pickup";
         }
         else
         {
-            // Fallback: try the old pickup actor for backward compatibility
-            APickupActor Pickup = Cast<APickupActor>(CurrentInteractionTarget);
-            if (Pickup != nullptr)
-            {
-                InteractionText = Pickup.GetInteractionText();
-            }
-            else
-            {
-                InteractionText = "Press F to interact";
-            }
+            // Use default interaction text for non-pickup items
+            InteractionText = "Press F to interact";
         }
 
         // Try to get HUD capability if we don't have it cached
@@ -267,35 +343,80 @@ class UInteractionCapability : UBaseCapability
         if (Target == nullptr)
             return false;
 
-        // First try pickup capability (new system)
-        UPickupCapability PickupCap = UPickupCapability::Get(Target);
-        if (PickupCap != nullptr)
+        Log(f"Broadcasting interaction event for {Target.GetName()}");
+
+    // Always route interaction through the server so resulting actions replicate
+    Server_BroadcastInteraction(Target);
+        
+        // For now, we'll return true if any capability was found on the target
+        // The actual success/failure will be determined by the responding capabilities
+        UCapabilityManagerComponent TargetCapManager = UCapabilityManagerComponent::Get(Target);
+        if (TargetCapManager != nullptr)
         {
-            bool bSuccess = PickupCap.TryPickup(GetOwner());
-            if (bSuccess)
-            {
-                // Remove from nearby interactables if it was consumed
-                UnregisterInteractable(Target);
-            }
-            return bSuccess;
+            Log(f"Target {Target.GetName()} has capability manager - interaction should be handled");
+            return true;
         }
 
-        // Fallback: Handle pickup actors (old system for backward compatibility)
-        APickupActor Pickup = Cast<APickupActor>(Target);
-        if (Pickup != nullptr)
-        {
-            bool bSuccess = Pickup.TryPickup(GetOwner());
-            if (bSuccess)
-            {
-                // Remove from nearby interactables if it was consumed
-                UnregisterInteractable(Target);
-            }
-            return bSuccess;
-        }
-
-        // Add other interactable types here in the future
-        Log(f"No interaction handler for {Target.GetName()}");
+        Log(f"No capability manager found on {Target.GetName()}");
         return false;
+    }
+
+    // Server RPC to broadcast the interaction to target capabilities
+    UFUNCTION(Server)
+    void Server_BroadcastInteraction(AActor Target)
+    {
+        if (Target == nullptr)
+            return;
+
+        BroadcastInteractionEvent(Target, "OnInteractionStarted");
+    }
+
+    // Broadcast interaction events to all capabilities on the target actor
+    void BroadcastInteractionEvent(AActor Target, FString EventName)
+    {
+        if (Target == nullptr)
+            return;
+
+        UCapabilityManagerComponent TargetCapManager = UCapabilityManagerComponent::Get(Target);
+        if (TargetCapManager == nullptr)
+            return;
+
+        // Get all capabilities and check if they have interaction event handlers
+        TArray<UBaseCapability> AllCapabilities = TargetCapManager.GetAllCapabilities();
+        
+        for (UBaseCapability Capability : AllCapabilities)
+        {
+            if (Capability != nullptr)
+            {
+                // Try to call the interaction event method if it exists
+                if (EventName == "OnInteractionStarted")
+                {
+                    // Check if the capability has an OnInteractionStarted method
+                    UActorPickupCapability PickupCap = Cast<UActorPickupCapability>(Capability);
+                    if (PickupCap != nullptr)
+                    {
+                        PickupCap.OnInteractionStarted(GetOwner(), Target);
+                    }
+                }
+            }
+        }
+    }
+
+    // Called by other capabilities to report interaction results
+    UFUNCTION(BlueprintCallable, Category = "Interaction Events")
+    void OnInteractionHandled(AActor InteractingActor, AActor TargetActor, bool bSuccess)
+    {
+        if (bSuccess)
+        {
+            Log(f"Interaction with {TargetActor.GetName()} was handled successfully");
+            
+            // Remove from nearby interactables if it was consumed
+            UnregisterInteractable(TargetActor);
+        }
+        else
+        {
+            Log(f"Interaction with {TargetActor.GetName()} failed");
+        }
     }
 
     UFUNCTION(BlueprintOverride)

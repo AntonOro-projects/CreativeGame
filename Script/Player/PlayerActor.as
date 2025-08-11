@@ -1,22 +1,27 @@
 class ANormalPlayer : ABaseECSActor
 {
+    default bReplicates = true;
+    default bReplicateMovement = true;
+
     UPROPERTY(DefaultComponent, RootComponent)
     USceneComponent SceneRoot;
 
     UPROPERTY(DefaultComponent, Attach = SceneRoot)
     UStaticMeshComponent Mesh;
 
-    
-
     UFUNCTION(BlueprintOverride)
     void BeginPlay()
     {
-        //UCapabilityManagerComponent::GetOrCreate(this).AddCapability(UPickupCapability);
+        // All we need to do is add the capability - it handles everything else!
+        UCapabilityManagerComponent::GetOrCreate(this).AddCapability(UActorPickupCapability);
     }
 };
 
 class ANormalPlayerCharacter : ABaseECSCharacter
 {
+    default bReplicates = true;
+    default bReplicateMovement = true;
+    
     // Do NOT replace the Character's root (CapsuleComponent). Leave attach unspecified so it attaches to the inherited root.
     UPROPERTY(DefaultComponent)
     UStaticMeshComponent StaticMesh;
@@ -71,10 +76,6 @@ class ANormalPlayerCharacter : ABaseECSCharacter
     UPROPERTY()
     UInventoryComponent InventoryComponent;
 
-    // Reference to your editor-created sword asset
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Test Items")
-    UInventoryItemData EditorSwordAsset; // Assign your DA_Sword here in the editor
-
 	UFUNCTION(BlueprintOverride)
 	void BeginPlay()
 	{
@@ -94,9 +95,6 @@ class ANormalPlayerCharacter : ABaseECSCharacter
         // Add inventory visuals capability
         CachedCapabilityManager.AddCapability(UInventoryVisualsCapability);
 
-        // Add inventory test capability for development
-        CachedCapabilityManager.AddCapability(UInventoryTestCapability);
-
         // Add interaction capability
         CachedCapabilityManager.AddCapability(UInteractionCapability);
 
@@ -106,38 +104,7 @@ class ANormalPlayerCharacter : ABaseECSCharacter
         // Test adding items to inventory
         //TestAddItemsToInventory();
 
-        Log("Player character initialized with inventory system");
+        Log("Player character initialized with actor-based inventory system");
 
 	}
-
-    void TestAddItemsToInventory()
-    {
-        if (InventoryComponent == nullptr)
-        {
-            Log("InventoryComponent is null, cannot add items");
-            return;
-        }
-
-        // Method 2: Add the editor-created asset (if assigned)
-        if (EditorSwordAsset != nullptr)
-        {
-            bool bSuccess2 = InventoryComponent.AddItemToFirstAvailableSlot(EditorSwordAsset);
-            if (bSuccess2)
-            {
-                Log("Successfully added EditorSwordAsset (DA_Sword) to inventory");
-            }
-            else
-            {
-                Log("Failed to add EditorSwordAsset to inventory");
-            }
-        }
-        else
-        {
-            Log("EditorSwordAsset is null - assign your DA_Sword asset in the editor");
-        }
-
-        // Set the first item as selected
-        InventoryComponent.SetSelectedSlot(0);
-        Log("Set inventory slot 1 as selected");
-    }
 };

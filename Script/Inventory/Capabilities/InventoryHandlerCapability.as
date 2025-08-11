@@ -8,11 +8,11 @@ class UInventoryInputCapability : UBaseCapability
     UPlayerHUDCapability CachedHUDCapability;
 
     // For tracking inventory changes
-    UInventoryItemData LastKnownItem;
+    AActor LastKnownItem;
     int32 LastKnownSlot = -1;
 
     UFUNCTION(BlueprintOverride)
-    bool ShouldBeActive() const
+    bool ShouldBeActive()
     {
         // Always active when we have a valid inventory component
         return GetInventoryComponent() != nullptr;
@@ -170,7 +170,7 @@ class UInventoryInputCapability : UBaseCapability
             int32 PreviousSlot = CachedInventoryComponent.GetSelectedSlotIndex();
             CachedInventoryComponent.SetSelectedSlot(SlotIndex);
             
-            UInventoryItemData SelectedItem = CachedInventoryComponent.GetPrimaryItem();
+            AActor SelectedItem = CachedInventoryComponent.GetItemInSlot(SlotIndex);
             
             // Update HUD instead of console logging
             UpdateInventoryHUD();
@@ -191,12 +191,12 @@ class UInventoryInputCapability : UBaseCapability
         if (CachedHUDCapability != nullptr && CachedInventoryComponent != nullptr)
         {
             int32 SelectedSlot = CachedInventoryComponent.GetSelectedSlotIndex();
-            UInventoryItemData SelectedItem = CachedInventoryComponent.GetPrimaryItem();
+            AActor SelectedItem = CachedInventoryComponent.GetPrimaryItem();
             
             FString ItemName = "Empty";
             if (SelectedItem != nullptr)
             {
-                ItemName = SelectedItem.GetDisplayName();
+                ItemName = SelectedItem.GetName().ToString();
             }
             
             CachedHUDCapability.UpdateInventoryDisplay(SelectedSlot + 1, ItemName);
@@ -205,7 +205,7 @@ class UInventoryInputCapability : UBaseCapability
 
     // Override this to add custom logic when inventory selection changes
     UFUNCTION(BlueprintCallable, Category = "Inventory")
-    void OnInventorySelectionChanged(int32 PreviousSlot, int32 NewSlot, UInventoryItemData SelectedItem)
+    void OnInventorySelectionChanged(int32 PreviousSlot, int32 NewSlot, AActor SelectedItem)
     {
         // Base implementation - override in derived classes for custom behavior
     }
@@ -217,7 +217,7 @@ class UInventoryInputCapability : UBaseCapability
         // This handles cases where items are added/removed outside of input (like pickups)
         if (CachedInventoryComponent != nullptr)
         {
-            UInventoryItemData CurrentItem = CachedInventoryComponent.GetPrimaryItem();
+            AActor CurrentItem = CachedInventoryComponent.GetPrimaryItem();
             int32 CurrentSlot = CachedInventoryComponent.GetSelectedSlotIndex();
             
             // Update HUD if the selected slot or its contents changed
