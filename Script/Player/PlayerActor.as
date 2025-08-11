@@ -6,6 +6,13 @@ class ANormalPlayer : ABaseECSActor
     UPROPERTY(DefaultComponent, Attach = SceneRoot)
     UStaticMeshComponent Mesh;
 
+    
+
+    UFUNCTION(BlueprintOverride)
+    void BeginPlay()
+    {
+        //UCapabilityManagerComponent::GetOrCreate(this).AddCapability(UPickupCapability);
+    }
 };
 
 class ANormalPlayerCharacter : ABaseECSCharacter

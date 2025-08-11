@@ -188,17 +188,26 @@ class UInteractionCapability : UBaseCapability
             return;
         }
 
-        // Try to get interaction text from a pickup actor
-        APickupActor Pickup = Cast<APickupActor>(CurrentInteractionTarget);
+        // Try to get interaction text from a pickup capability
+        UPickupCapability PickupCap = UPickupCapability::Get(CurrentInteractionTarget);
         FString InteractionText;
         
-        if (Pickup != nullptr)
+        if (PickupCap != nullptr)
         {
-            InteractionText = Pickup.GetInteractionText();
+            InteractionText = PickupCap.GetInteractionText();
         }
         else
         {
-            InteractionText = "Press F to interact";
+            // Fallback: try the old pickup actor for backward compatibility
+            APickupActor Pickup = Cast<APickupActor>(CurrentInteractionTarget);
+            if (Pickup != nullptr)
+            {
+                InteractionText = Pickup.GetInteractionText();
+            }
+            else
+            {
+                InteractionText = "Press F to interact";
+            }
         }
 
         // Try to get HUD capability if we don't have it cached
@@ -258,7 +267,20 @@ class UInteractionCapability : UBaseCapability
         if (Target == nullptr)
             return false;
 
-        // Handle pickup actors
+        // First try pickup capability (new system)
+        UPickupCapability PickupCap = UPickupCapability::Get(Target);
+        if (PickupCap != nullptr)
+        {
+            bool bSuccess = PickupCap.TryPickup(GetOwner());
+            if (bSuccess)
+            {
+                // Remove from nearby interactables if it was consumed
+                UnregisterInteractable(Target);
+            }
+            return bSuccess;
+        }
+
+        // Fallback: Handle pickup actors (old system for backward compatibility)
         APickupActor Pickup = Cast<APickupActor>(Target);
         if (Pickup != nullptr)
         {
