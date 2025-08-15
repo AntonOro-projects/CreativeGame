@@ -2,7 +2,7 @@
 
 A creative sandbox game where players get full systemic control to spawn meshes, group them, attach/detach capabilities, toggle activation and ticking, and wire behaviors together to create contraptions, mini-games, and worlds!
 
-## Setup Guide
+## Setup Guide (Windows)
 
 The following sections details how to set up your environment to contribute to the project.
 
@@ -42,6 +42,20 @@ In the cloned repository, right-click the CreativeGame.uproject file, and select
 ### Starting The Editor
 
 Open the solution file with Visual Studio, and select Creative Game as the Startup Project (Solution Explorer: Games/CreativeGame, right click, Set as Startup Project). Then click Start without Debugging and after finishing building, the editor should open.
+
+### Setup Guide for Mac
+3. Get access to Unreal Engine source code, following [this guide](https://www.unrealengine.com/en-US/ue-on-github).
+2. Download UnrealEngine-Angelscript by cloning the [UnrealEngine-Angelscript GitHub Repository](https://github.com/Hazelight/UnrealEngine-Angelscript).
+4. Download and install the latest version of XCode [here](https://developer.apple.com/xcode/) 
+5. In the repo folder, open terminal:
+    1. Paste command:
+         cd /[path to folder]
+        ./Setup.command
+        ./GenerateProjectFiles.command
+    2. This will generate the necessary project files
+6. Open the generated `.xcworkspace` in Xcode
+7. First, build the **ShaderCompileWorker for My Mac** target, then the **UE5Editor** target (or similar), via Product > Build
+8. This will compile the engine and launch the editor
 
 ## Development Guide
 
